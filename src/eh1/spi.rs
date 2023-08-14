@@ -11,7 +11,7 @@ use core::fmt::Debug;
 use core::task::Poll;
 
 use embedded_hal_1::digital::InputPin;
-use embedded_hal_1::spi::{SpiBus, SpiBusWrite, SpiDevice};
+use embedded_hal_1::spi::{Operation, SpiDevice};
 
 use crate::Interface;
 
@@ -39,7 +39,7 @@ pub const PN532_SPI_READY: u8 = as_lsb(0x01);
 pub struct SPIInterface<SPI>
 where
     SPI: SpiDevice,
-    SPI::Bus: SpiBus,
+    // SPI::Bus: SpiBus,
     SPI::Error: Debug,
 {
     pub spi: SPI,
@@ -48,33 +48,34 @@ where
 impl<SPI> Interface for SPIInterface<SPI>
 where
     SPI: SpiDevice,
-    SPI::Bus: SpiBus,
+    // SPI::Bus: SpiBus,
     SPI::Error: Debug,
 {
     type Error = SPI::Error;
 
     fn write(&mut self, frame: &[u8]) -> Result<(), Self::Error> {
-        self.spi.transaction(|bus| {
-            bus.write(&[PN532_SPI_DATAWRITE])?;
-            #[cfg(feature = "msb-spi")]
-            for byte in frame {
-                bus.write(&[byte.reverse_bits()])?
-            }
+        #[cfg(feature = "msb-spi")]
+        let frame= frame.iter().map(|x| x.reverse_bits()).into(); // FIXME: Find no-copy solution, would need mut
 
-            #[cfg(not(feature = "msb-spi"))]
-            bus.write(frame)?;
-
-            Ok(())
-        })
+        self.spi.transaction(&mut [Operation::Write(&[PN532_SPI_DATAWRITE]), Operation::Write(&frame)])
+        // self.spi.transaction(|bus| {
+        //     bus.write(&[PN532_SPI_DATAWRITE])?;
+        //     #[cfg(feature = "msb-spi")]
+        //     for byte in frame {
+        //         bus.write(&[byte.reverse_bits()])?
+        //     }
+        //
+        //     #[cfg(not(feature = "msb-spi"))]
+        //     bus.write(frame)?;
+        //
+        //     Ok(())
+        // })
     }
 
     fn wait_ready(&mut self) -> Poll<Result<(), Self::Error>> {
         let mut buf = [0x00];
 
-        self.spi.transaction(|bus| {
-            bus.write(&[PN532_SPI_STATREAD])?;
-            bus.transfer_in_place(&mut buf)
-        })?;
+        self.spi.transaction(&mut [Operation::Write(&[PN532_SPI_STATREAD]), Operation::TransferInPlace(&mut buf)])?;
 
         if buf[0] == PN532_SPI_READY {
             Poll::Ready(Ok(()))
@@ -84,10 +85,7 @@ where
     }
 
     fn read(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
-        self.spi.transaction(|bus| {
-            bus.write(&[PN532_SPI_DATAREAD])?;
-            bus.transfer_in_place(buf)
-        })?;
+        self.spi.transaction(&mut [Operation::Write(&[PN532_SPI_DATAREAD]), Operation::TransferInPlace(buf)])?;
 
         #[cfg(feature = "msb-spi")]
         for byte in buf.iter_mut() {
@@ -103,7 +101,7 @@ where
 pub struct SPIInterfaceWithIrq<SPI, IRQ>
 where
     SPI: SpiDevice,
-    SPI::Bus: SpiBus,
+    // SPI::Bus: SpiBus,
     SPI::Error: Debug,
     IRQ: InputPin<Error = Infallible>,
 {
@@ -114,25 +112,30 @@ where
 impl<SPI, IRQ> Interface for SPIInterfaceWithIrq<SPI, IRQ>
 where
     SPI: SpiDevice,
-    SPI::Bus: SpiBus,
+    // SPI::Bus: SpiBus,
     SPI::Error: Debug,
     IRQ: InputPin<Error = Infallible>,
 {
     type Error = SPI::Error;
 
     fn write(&mut self, frame: &[u8]) -> Result<(), Self::Error> {
-        self.spi.transaction(|bus| {
-            bus.write(&[PN532_SPI_DATAWRITE])?;
+        #[cfg(feature = "msb-spi")]
+        let frame= frame.iter().map(|x| x.reverse_bits()).into(); // FIXME: Find no-copy solution, would need mut
 
-            #[cfg(feature = "msb-spi")]
-            for byte in frame {
-                bus.write(&[byte.reverse_bits()])?
-            }
-            #[cfg(not(feature = "msb-spi"))]
-            bus.write(frame)?;
+        self.spi.transaction(&mut [Operation::Write(&[PN532_SPI_DATAWRITE]), Operation::Write(&frame)])
 
-            Ok(())
-        })
+        // self.spi.transaction(|bus| {
+        //     bus.write(&[PN532_SPI_DATAWRITE])?;
+        //
+        //     #[cfg(feature = "msb-spi")]
+        //     for byte in frame {
+        //         bus.write(&[byte.reverse_bits()])?
+        //     }
+        //     #[cfg(not(feature = "msb-spi"))]
+        //     bus.write(frame)?;
+        //
+        //     Ok(())
+        // })
     }
 
     fn wait_ready(&mut self) -> Poll<Result<(), Self::Error>> {
@@ -145,10 +148,11 @@ where
     }
 
     fn read(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
-        self.spi.transaction(|bus| {
-            bus.write(&[PN532_SPI_DATAREAD])?;
-            bus.transfer_in_place(buf)
-        })?;
+        self.spi.transaction(&mut [Operation::Write(&[PN532_SPI_DATAREAD]), Operation::TransferInPlace(buf)])?;
+        // self.spi.transaction(|bus| {
+        //     bus.write(&[PN532_SPI_DATAREAD])?;
+        //     bus.transfer_in_place(buf)
+        // })?;
 
         #[cfg(feature = "msb-spi")]
         for byte in buf.iter_mut() {

@@ -97,13 +97,6 @@ mod eh {
             Ok(())
         }
 
-        fn write_iter<B>(&mut self, _: SevenBitAddress, _: B) -> Result<(), Self::Error>
-        where
-            B: IntoIterator<Item = u8>,
-        {
-            Ok(())
-        }
-
         fn write_read(
             &mut self,
             _: SevenBitAddress,
@@ -113,30 +106,11 @@ mod eh {
             Ok(())
         }
 
-        fn write_iter_read<B>(
-            &mut self,
-            _: SevenBitAddress,
-            _: B,
-            _: &mut [u8],
-        ) -> Result<(), Self::Error>
-        where
-            B: IntoIterator<Item = u8>,
-        {
-            Ok(())
-        }
-
         fn transaction(
             &mut self,
             _: SevenBitAddress,
             _: &mut [Operation],
         ) -> Result<(), Self::Error> {
-            Ok(())
-        }
-
-        fn transaction_iter<'a, O>(&mut self, _: SevenBitAddress, _: O) -> Result<(), Self::Error>
-        where
-            O: IntoIterator<Item = Operation<'a>>,
-        {
             Ok(())
         }
     }
