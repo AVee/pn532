@@ -42,6 +42,8 @@ impl Transfer<u8> for NoOpBus {
 #[cfg(not(feature = "eh1"))]
 mod eh {
     use crate::spi::SPIInterface;
+    use crate::Pn532;
+    use crate::doc_test_helper::{NoOpBus, NoOpCS, NoOpTimer};
 
     /// used for doc tests
     pub fn get_pn532() -> Pn532<SPIInterface<NoOpBus, NoOpCS>, NoOpTimer> {
